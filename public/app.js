@@ -1,7 +1,13 @@
 /**
  * CampusFindIt - Next Gen Frontend Application Logic
  * 2nd Year CSE Buildathon Edition (JWT Auth, File Uploads, Pagination & CRUD)
+ * Supports GitHub Pages cross-origin API bridging
  */
+
+// Dynamic API Base URL detection for GitHub Pages hosting
+const BACKEND_PUBLIC_URL = 'https://forty-donuts-argue.loca.lt';
+const isGitHubPages = window.location.hostname.includes('github.io');
+const API_BASE_URL = isGitHubPages ? BACKEND_PUBLIC_URL : '';
 
 // Application State
 const state = {
@@ -291,9 +297,12 @@ async function handleLogin(e) {
     const password = document.getElementById('login_password').value;
 
     try {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'bypass-tunnel-reminder': 'true'
+            },
             body: JSON.stringify({ email, password })
         });
         const data = await res.json();
@@ -323,9 +332,12 @@ async function handleRegister(e) {
     const password = document.getElementById('reg_password').value;
 
     try {
-        const res = await fetch('/api/auth/register', {
+        const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'bypass-tunnel-reminder': 'true'
+            },
             body: JSON.stringify({ name, email, password })
         });
         const data = await res.json();
@@ -363,7 +375,9 @@ function handleLogout() {
 // Fetch Stats from API
 async function fetchStats() {
     try {
-        const res = await fetch('/api/stats');
+        const res = await fetch(`${API_BASE_URL}/api/stats`, {
+            headers: { 'bypass-tunnel-reminder': 'true' }
+        });
         if (!res.ok) return;
         const data = await res.json();
         
@@ -409,10 +423,10 @@ async function fetchItems() {
         params.append('page', state.page);
         params.append('limit', state.limit);
 
-        const headers = {};
+        const headers = { 'bypass-tunnel-reminder': 'true' };
         if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
 
-        const res = await fetch(`/api/items?${params.toString()}`, { headers });
+        const res = await fetch(`${API_BASE_URL}/api/items?${params.toString()}`, { headers });
         if (!res.ok) throw new Error('API fetch failed');
         const data = await res.json();
 
@@ -436,7 +450,7 @@ async function fetchItems() {
             <div class="empty-box">
                 <div class="empty-icon-circle"><i class="fa-solid fa-triangle-exclamation" style="color: var(--lost-color);"></i></div>
                 <h3>Unable to connect to Backend Server</h3>
-                <p style="color: var(--text-muted);">Ensure server is running on http://localhost:8080</p>
+                <p style="color: var(--text-muted);">Ensure backend server is running on ${API_BASE_URL || 'http://localhost:8080'}</p>
             </div>
         `;
     }
@@ -465,7 +479,11 @@ function renderItems(items) {
         const statusClass = item.status === 'REUNITED' ? 'reunited' : item.type.toLowerCase();
         const statusLabel = item.status === 'REUNITED' ? 'REUNITED' : item.type;
         const fallbackImg = categoryDefaultImages[item.category] || categoryDefaultImages['Other'];
-        const displayImg = item.image_url && item.image_url.trim() !== '' ? item.image_url : fallbackImg;
+        
+        let displayImg = item.image_url && item.image_url.trim() !== '' ? item.image_url : fallbackImg;
+        if (displayImg.startsWith('/uploads/')) {
+            displayImg = `${API_BASE_URL}${displayImg}`;
+        }
         
         return `
             <div class="item-card" onclick="openDetailsModal(${item.id})">
@@ -502,7 +520,12 @@ function openDetailsModal(id) {
     elements.detailTypeBadge.textContent = item.status === 'REUNITED' ? 'REUNITED / CLAIMED' : item.type;
     
     const fallbackImg = categoryDefaultImages[item.category] || categoryDefaultImages['Other'];
-    elements.detailImg.src = item.image_url && item.image_url.trim() !== '' ? item.image_url : fallbackImg;
+    let displayImg = item.image_url && item.image_url.trim() !== '' ? item.image_url : fallbackImg;
+    if (displayImg.startsWith('/uploads/')) {
+        displayImg = `${API_BASE_URL}${displayImg}`;
+    }
+
+    elements.detailImg.src = displayImg;
     elements.detailImg.onerror = () => { elements.detailImg.src = fallbackImg; };
     
     elements.detailTitle.textContent = item.title;
@@ -536,9 +559,12 @@ async function handleReportSubmit(e) {
         formData.append('image', file);
 
         try {
-            const uploadRes = await fetch('/api/upload', {
+            const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
                 method: 'POST',
-                headers: state.token ? { 'Authorization': `Bearer ${state.token}` } : {},
+                headers: state.token ? { 
+                    'Authorization': `Bearer ${state.token}`,
+                    'bypass-tunnel-reminder': 'true'
+                } : { 'bypass-tunnel-reminder': 'true' },
                 body: formData
             });
             const uploadData = await uploadRes.json();
@@ -562,11 +588,14 @@ async function handleReportSubmit(e) {
         image_url: uploadedImageUrl
     };
 
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { 
+        'Content-Type': 'application/json',
+        'bypass-tunnel-reminder': 'true'
+    };
     if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
 
     try {
-        const res = await fetch('/api/items', {
+        const res = await fetch(`${API_BASE_URL}/api/items`, {
             method: 'POST',
             headers,
             body: JSON.stringify(payload)
@@ -628,11 +657,12 @@ async function handleEditSubmit(e) {
     }
 
     try {
-        const res = await fetch(`/api/items/${itemId}`, {
+        const res = await fetch(`${API_BASE_URL}/api/items/${itemId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${state.token}`
+                'Authorization': `Bearer ${state.token}`,
+                'bypass-tunnel-reminder': 'true'
             },
             body: JSON.stringify(payload)
         });
@@ -660,11 +690,12 @@ async function handleMarkReunited() {
 
     const headers = { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${state.token}`
+        'Authorization': `Bearer ${state.token}`,
+        'bypass-tunnel-reminder': 'true'
     };
 
     try {
-        const res = await fetch(`/api/items/${state.currentItemId}/status`, {
+        const res = await fetch(`${API_BASE_URL}/api/items/${state.currentItemId}/status`, {
             method: 'PATCH',
             headers,
             body: JSON.stringify({ status: 'REUNITED' })
@@ -698,11 +729,12 @@ async function handleDeleteItem() {
     }
 
     const headers = {
-        'Authorization': `Bearer ${state.token}`
+        'Authorization': `Bearer ${state.token}`,
+        'bypass-tunnel-reminder': 'true'
     };
 
     try {
-        const res = await fetch(`/api/items/${state.currentItemId}`, {
+        const res = await fetch(`${API_BASE_URL}/api/items/${state.currentItemId}`, {
             method: 'DELETE',
             headers
         });

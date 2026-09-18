@@ -1,6 +1,7 @@
 # 🔍 CampusFindIt - Lost & Found Web Portal
 
-> **A full-stack, easy-to-understand Campus Lost and Found web application tailored for 2nd Year Computer Science & Engineering (CSE) students to demonstrate Web Development, Database Management Systems (DBMS), REST APIs, and Version Control with GitHub.**
+> 🌐 **Live Public Demo URL**: [https://forty-donuts-argue.loca.lt](https://forty-donuts-argue.loca.lt)  
+> **A full-stack Campus Lost and Found web application tailored for 2nd Year CSE Genesis 2.0 Buildathon demonstrating Node.js, Express REST API, SQLite3 DBMS, bcrypt password hashing, JWT authentication, and file uploads.**
 
 ---
 
