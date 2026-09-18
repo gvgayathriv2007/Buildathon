@@ -20,7 +20,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'campus_findit_genesis_2026_super_s
 const DB_FILE = path.join(__dirname, 'campus_lost_found.db');
 
 // Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'public', 'uploads');
+const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -53,6 +53,7 @@ const upload = multer({
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
