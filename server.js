@@ -16,6 +16,7 @@ const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const JWT_SECRET = process.env.JWT_SECRET || 'campus_lost_found_super_secret_jwt_key_2026';
 const isVercel = process.env.VERCEL === '1';
 const DB_FILE = isVercel ? '/tmp/campus_lost_found.db' : path.join(__dirname, 'campus_lost_found.db');
 
@@ -176,85 +177,109 @@ const db = new sqlite3.Database(DB_FILE, (err) => {
         console.error('Error opening database:', err.message);
     } else {
         console.log('Connected to SQLite database.');
-        initDatabase();
+        ensureDatabaseInitialized();
     }
 });
 
-function initDatabase() {
-    // 1. Create Users Table
-    db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `, () => {
-        // Seed initial admin/demo user if empty
-        db.get('SELECT COUNT(*) as count FROM users', [], async (err, row) => {
-            if (row && row.count === 0) {
-                const hashedPassword = await bcrypt.hash('student123', 10);
-                db.run(
-                    'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-                    ['Demo Student', 'student@campus.edu', hashedPassword],
-                    () => console.log('Seeded demo user: student@campus.edu / student123')
-                );
-            }
+let dbInitializedPromise = null;
+
+function ensureDatabaseInitialized() {
+    if (dbInitializedPromise) return dbInitializedPromise;
+
+    dbInitializedPromise = new Promise((resolve) => {
+        db.serialize(() => {
+            // 1. Create Users Table
+            db.run(`
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Seed initial admin/demo user if empty
+            db.get('SELECT COUNT(*) as count FROM users', [], async (err, row) => {
+                if (row && row.count === 0) {
+                    try {
+                        const hashedPassword = await bcrypt.hash('student123', 10);
+                        db.run(
+                            'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+                            ['Demo Student', 'student@campus.edu', hashedPassword]
+                        );
+                    } catch (e) {}
+                }
+            });
+
+            // 2. Create Items Table
+            db.run(`
+                CREATE TABLE IF NOT EXISTS items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER DEFAULT 0,
+                    title TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    location TEXT NOT NULL,
+                    date_reported TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    contact_name TEXT NOT NULL,
+                    contact_info TEXT NOT NULL,
+                    image_url TEXT,
+                    status TEXT DEFAULT 'OPEN',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `, () => {
+                // Ensure user_id column exists if table was created previously without it
+                db.all("PRAGMA table_info(items)", [], (err, columns) => {
+                    if (columns && !columns.some(col => col.name === 'user_id')) {
+                        db.run("ALTER TABLE items ADD COLUMN user_id INTEGER DEFAULT 0");
+                    }
+                });
+
+                // Seed initial data if table is empty
+                db.get('SELECT COUNT(*) as count FROM items', [], (err, row) => {
+                    if (row && row.count === 0) {
+                        const sampleItems = [
+                            [1, "Wireless Boat Airdopes (Black)", "LOST", "Electronics", "Central Library Reading Room 2", "2026-09-15", "Left in a black charging case near table 14. Serial number ending in 89.", "Rahul Sharma", "rahul.cs23@campus.edu | Ph: 9876543210", "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80", "OPEN"],
+                            [1, "Black Boat Airdopes in Charging Case", "FOUND", "Electronics", "Central Library Desk 14", "2026-09-15", "Found black wireless earbud case on reading table 14.", "Library Helpdesk", "library@campus.edu | Ext: 102", "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80", "OPEN"],
+                            [1, "College ID Card & Leather Wallet", "LOST", "ID & Wallet", "Main Canteen Counter", "2026-09-16", "Black leather wallet containing student ID card for Ananya Verma (2024CSE104).", "Ananya Verma", "ananya.v@campus.edu | Ph: 9876501234", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
+                            [1, "Student ID Card (Ananya Verma)", "FOUND", "ID & Wallet", "Main Canteen Juice Counter", "2026-09-16", "Found near juice counter. Name on card: Ananya Verma, Reg No: 2024CSE104.", "Security Desk Gate 1", "security@campus.edu | Ext: 401", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
+                            [1, "Casio FX-991EX Scientific Calculator", "LOST", "Electronics", "CS Department Lab 3", "2026-09-14", "Has a yellow sticker on the back with name Karthik. Essential for upcoming exams!", "Karthik R.", "karthik.r@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
+                            [1, "Casio Calculator with Yellow Sticker", "FOUND", "Electronics", "CS Department Lab 3", "2026-09-14", "Scientific calculator left on desk 5 in CS Lab 3.", "Lab Assistant Vivek", "vivek.cs@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
+                            [1, "Bunch of 3 Keys with Batman Keychain", "LOST", "Keys", "Sports Complex Court B", "2026-09-17", "Lost 2 brass keys and 1 bike key on a black Batman keychain.", "Priya Nair", "priya.nair@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
+                            [1, "Set of Keys with Batman Keychain", "FOUND", "Keys", "Sports Complex Court B", "2026-09-17", "Found on bench near badminton court. 2 brass keys and 1 bike key.", "Sports Security", "sports@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
+                            [1, "Blue Denim Jacket (Size M)", "FOUND", "Apparel", "Auditorium Block A", "2026-09-12", "Left behind after Freshman Orientation event. Contains a college library slip in pocket.", "Volunteers Helpdesk", "events@campus.edu", "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&q=80", "REUNITED"]
+                        ];
+
+                        const stmt = db.prepare(`
+                            INSERT INTO items (user_id, title, type, category, location, date_reported, description, contact_name, contact_info, image_url, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `);
+                        sampleItems.forEach(item => stmt.run(item));
+                        stmt.finalize(() => resolve());
+                    } else {
+                        resolve();
+                    }
+                });
+            });
         });
     });
 
-    // 2. Create Items Table
-    db.run(`
-        CREATE TABLE IF NOT EXISTS items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER DEFAULT 0,
-            title TEXT NOT NULL,
-            type TEXT NOT NULL,
-            category TEXT NOT NULL,
-            location TEXT NOT NULL,
-            date_reported TEXT NOT NULL,
-            description TEXT NOT NULL,
-            contact_name TEXT NOT NULL,
-            contact_info TEXT NOT NULL,
-            image_url TEXT,
-            status TEXT DEFAULT 'OPEN',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `, () => {
-        // Ensure user_id column exists if table was created previously without it
-        db.all("PRAGMA table_info(items)", [], (err, columns) => {
-            if (columns && !columns.some(col => col.name === 'user_id')) {
-                db.run("ALTER TABLE items ADD COLUMN user_id INTEGER DEFAULT 0");
-            }
-        });
-
-        // Seed initial data if table is empty
-        db.get('SELECT COUNT(*) as count FROM items', [], (err, row) => {
-            if (row && row.count === 0) {
-                const sampleItems = [
-                    [1, "Wireless Boat Airdopes (Black)", "LOST", "Electronics", "Central Library Reading Room 2", "2026-09-15", "Left in a black charging case near table 14. Serial number ending in 89.", "Rahul Sharma", "rahul.cs23@campus.edu | Ph: 9876543210", "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80", "OPEN"],
-                    [1, "Black Boat Airdopes in Charging Case", "FOUND", "Electronics", "Central Library Desk 14", "2026-09-15", "Found black wireless earbud case on reading table 14.", "Library Helpdesk", "library@campus.edu | Ext: 102", "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80", "OPEN"],
-                    [1, "College ID Card & Leather Wallet", "LOST", "ID & Wallet", "Main Canteen Counter", "2026-09-16", "Black leather wallet containing student ID card for Ananya Verma (2024CSE104).", "Ananya Verma", "ananya.v@campus.edu | Ph: 9876501234", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
-                    [1, "Student ID Card (Ananya Verma)", "FOUND", "ID & Wallet", "Main Canteen Juice Counter", "2026-09-16", "Found near juice counter. Name on card: Ananya Verma, Reg No: 2024CSE104.", "Security Desk Gate 1", "security@campus.edu | Ext: 401", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
-                    [1, "Casio FX-991EX Scientific Calculator", "LOST", "Electronics", "CS Department Lab 3", "2026-09-14", "Has a yellow sticker on the back with name Karthik. Essential for upcoming exams!", "Karthik R.", "karthik.r@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
-                    [1, "Casio Calculator with Yellow Sticker", "FOUND", "Electronics", "CS Department Lab 3", "2026-09-14", "Scientific calculator left on desk 5 in CS Lab 3.", "Lab Assistant Vivek", "vivek.cs@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
-                    [1, "Bunch of 3 Keys with Batman Keychain", "LOST", "Keys", "Sports Complex Court B", "2026-09-17", "Lost 2 brass keys and 1 bike key on a black Batman keychain.", "Priya Nair", "priya.nair@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
-                    [1, "Set of Keys with Batman Keychain", "FOUND", "Keys", "Sports Complex Court B", "2026-09-17", "Found on bench near badminton court. 2 brass keys and 1 bike key.", "Sports Security", "sports@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
-                    [1, "Blue Denim Jacket (Size M)", "FOUND", "Apparel", "Auditorium Block A", "2026-09-12", "Left behind after Freshman Orientation event. Contains a college library slip in pocket.", "Volunteers Helpdesk", "events@campus.edu", "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&q=80", "REUNITED"]
-                ];
-
-                const stmt = db.prepare(`
-                    INSERT INTO items (user_id, title, type, category, location, date_reported, description, contact_name, contact_info, image_url, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `);
-                sampleItems.forEach(item => stmt.run(item));
-                stmt.finalize();
-                console.log('Seeded database with initial campus items.');
-            }
-        });
-    });
+    return dbInitializedPromise;
 }
+
+// Ensure database is initialized for all API requests
+app.use(async (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+        try {
+            await ensureDatabaseInitialized();
+        } catch (err) {
+            console.error('Error initializing database:', err);
+        }
+    }
+    next();
+});
 
 // ---------------------------------------------------------------------------
 // AUTHENTICATION API ENDPOINTS
