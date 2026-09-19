@@ -14,8 +14,8 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Custom CSS (with Cache Busting v5.0) -->
-    <link rel="stylesheet" href="styles.css?v=5.0">
+    <!-- Custom CSS (with Cache Busting v6.0) -->
+    <link rel="stylesheet" href="styles.css?v=6.0">
 </head>
 <body>
 
@@ -32,6 +32,9 @@
             </a>
 
             <div class="nav-actions">
+                <button class="btn btn-glass" id="btn-open-smart-match" style="border-color: rgba(217, 164, 65, 0.4); color: var(--gold-light);">
+                    <i class="fa-solid fa-bolt" style="color: var(--gold-light);"></i> Smart Match Engine
+                </button>
                 <button class="btn btn-gradient" id="btn-open-report-modal">
                     <i class="fa-solid fa-plus"></i> Report Item
                 </button>
@@ -469,18 +472,56 @@
                 </div>
             </div>
 
-            <div class="modal-bottom-actions" style="justify-content: space-between;">
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-glass" id="btn-delete-item" style="color: var(--lost-color); border-color: rgba(244, 63, 94, 0.3);">
-                        <i class="fa-solid fa-trash-can"></i> Delete
+            <div class="modal-bottom-actions" style="justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-glass" id="btn-detail-smart-match" style="color: var(--gold-light); border-color: rgba(217, 164, 65, 0.4);">
+                        <i class="fa-solid fa-bolt"></i> Find Smart Matches
                     </button>
                     <button class="btn btn-glass" id="btn-open-edit-item" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">
                         <i class="fa-solid fa-pen"></i> Edit Details
+                    </button>
+                    <button class="btn btn-glass" id="btn-delete-item" style="color: var(--lost-color); border-color: rgba(244, 63, 94, 0.3);">
+                        <i class="fa-solid fa-trash-can"></i> Delete
                     </button>
                 </div>
                 <button class="btn btn-gradient" id="btn-mark-reunited" style="background: linear-gradient(135deg, #a855f7, #7e22ce);">
                     <i class="fa-solid fa-circle-check"></i> Mark as Reunited
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Smart Match Engine -->
+    <div class="modal-overlay-bg hidden" id="smart-match-modal">
+        <div class="modal-card smart-match-modal-card">
+            <div class="modal-top">
+                <h3 class="modal-top-title" style="color: var(--gold-light);">
+                    <i class="fa-solid fa-bolt"></i> Smart Match Engine
+                </h3>
+                <button class="btn-close-x" id="btn-close-smart-match"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Select Target Item Bar -->
+            <div class="smart-match-selector-bar">
+                <label for="smart-match-item-select"><i class="fa-solid fa-bullseye"></i> Select Target Item to Match:</label>
+                <select id="smart-match-item-select" class="select-custom" style="width: 100%; margin-top: 0.5rem;"></select>
+            </div>
+
+            <!-- Target Item Summary Banner -->
+            <div class="smart-match-target-banner hidden" id="smart-match-target-banner">
+                <div class="target-info">
+                    <span class="badge-status" id="match-target-type">LOST</span>
+                    <h4 id="match-target-title">Target Item Title</h4>
+                    <p id="match-target-meta" class="text-muted" style="font-size: 0.85rem; margin-top: 0.2rem;"></p>
+                </div>
+            </div>
+
+            <!-- Smart Match Results Container -->
+            <div class="smart-match-results-container" id="smart-match-results-container">
+                <div class="empty-box">
+                    <div class="empty-icon-circle"><i class="fa-solid fa-rotate fa-spin"></i></div>
+                    <h3>Select an item to run Smart Match algorithm...</h3>
+                </div>
             </div>
         </div>
     </div>
@@ -496,6 +537,6 @@
     </footer>
 
     <!-- JavaScript App -->
-    <script src="app.js"></script>
+    <script src="app.js?v=6.0"></script>
 </body>
 </html>

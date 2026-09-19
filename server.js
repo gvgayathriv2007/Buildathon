@@ -234,9 +234,13 @@ function initDatabase() {
             if (row && row.count === 0) {
                 const sampleItems = [
                     [1, "Wireless Boat Airdopes (Black)", "LOST", "Electronics", "Central Library Reading Room 2", "2026-09-15", "Left in a black charging case near table 14. Serial number ending in 89.", "Rahul Sharma", "rahul.cs23@campus.edu | Ph: 9876543210", "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80", "OPEN"],
-                    [1, "College ID Card (CSE 2nd Year)", "FOUND", "ID & Wallet", "Main Canteen Counter", "2026-09-16", "Found near juice counter. Name on card: Ananya Verma, Reg No: 2024CSE104.", "Security Desk Gate 1", "security@campus.edu | Ext: 401", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
-                    [1, "Casio FX-991EX Scientific Calculator", "LOST", "Electronics", "CS Department Lab 3", "2026-09-14", "Has a yellow sticker on the back with name 'Karthik'. Essential for upcoming exams!", "Karthik R.", "karthik.r@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
-                    [1, "Bunch of 3 Keys with Batman Keychain", "FOUND", "Keys", "Sports Complex Court B", "2026-09-17", "Found on bench near badminton court. 2 brass keys and 1 bike key.", "Priya Nair", "priya.nair@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
+                    [1, "Black Boat Airdopes in Charging Case", "FOUND", "Electronics", "Central Library Desk 14", "2026-09-15", "Found black wireless earbud case on reading table 14.", "Library Helpdesk", "library@campus.edu | Ext: 102", "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80", "OPEN"],
+                    [1, "College ID Card & Leather Wallet", "LOST", "ID & Wallet", "Main Canteen Counter", "2026-09-16", "Black leather wallet containing student ID card for Ananya Verma (2024CSE104).", "Ananya Verma", "ananya.v@campus.edu | Ph: 9876501234", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
+                    [1, "Student ID Card (Ananya Verma)", "FOUND", "ID & Wallet", "Main Canteen Juice Counter", "2026-09-16", "Found near juice counter. Name on card: Ananya Verma, Reg No: 2024CSE104.", "Security Desk Gate 1", "security@campus.edu | Ext: 401", "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500&q=80", "OPEN"],
+                    [1, "Casio FX-991EX Scientific Calculator", "LOST", "Electronics", "CS Department Lab 3", "2026-09-14", "Has a yellow sticker on the back with name Karthik. Essential for upcoming exams!", "Karthik R.", "karthik.r@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
+                    [1, "Casio Calculator with Yellow Sticker", "FOUND", "Electronics", "CS Department Lab 3", "2026-09-14", "Scientific calculator left on desk 5 in CS Lab 3.", "Lab Assistant Vivek", "vivek.cs@campus.edu", "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=500&q=80", "OPEN"],
+                    [1, "Bunch of 3 Keys with Batman Keychain", "LOST", "Keys", "Sports Complex Court B", "2026-09-17", "Lost 2 brass keys and 1 bike key on a black Batman keychain.", "Priya Nair", "priya.nair@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
+                    [1, "Set of Keys with Batman Keychain", "FOUND", "Keys", "Sports Complex Court B", "2026-09-17", "Found on bench near badminton court. 2 brass keys and 1 bike key.", "Sports Security", "sports@campus.edu", "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=500&q=80", "OPEN"],
                     [1, "Blue Denim Jacket (Size M)", "FOUND", "Apparel", "Auditorium Block A", "2026-09-12", "Left behind after Freshman Orientation event. Contains a college library slip in pocket.", "Volunteers Helpdesk", "events@campus.edu", "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&q=80", "REUNITED"]
                 ];
 
@@ -447,6 +451,179 @@ app.get('/api/items', (req, res) => {
     }
 });
 
+
+// ---------------------------------------------------------------------------
+// SMART MATCHING ALGORITHM ENGINE (Genesis 2.0 Feature Challenge)
+// ---------------------------------------------------------------------------
+const STOPWORDS = new Set(['a', 'an', 'the', 'in', 'on', 'at', 'near', 'with', 'my', 'is', 'and', 'or', 'for', 'to', 'of', 'lost', 'found', 'please', 'help', 'some', 'item', 'block', 'room']);
+
+function extractKeywords(text) {
+    if (!text) return new Set();
+    return new Set(
+        text.toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w.length > 2 && !STOPWORDS.has(w))
+    );
+}
+
+function calculateMatchScore(itemA, itemB) {
+    let score = 0;
+    const reasons = [];
+
+    // 1. Category Match (35 Points)
+    if (itemA.category && itemB.category && itemA.category.toLowerCase() === itemB.category.toLowerCase()) {
+        score += 35;
+        reasons.push(`🎯 Category Match: ${itemA.category}`);
+    }
+
+    // 2. Location Proximity (25 Points)
+    const locAWords = extractKeywords(itemA.location);
+    const locBWords = extractKeywords(itemB.location);
+    let locMatches = 0;
+    locAWords.forEach(w => {
+        if (locBWords.has(w)) locMatches++;
+    });
+
+    if (locMatches > 0) {
+        const locScore = Math.min(25, Math.round(locMatches * 12.5));
+        score += locScore;
+        reasons.push(`📍 Location Overlap (${itemB.location})`);
+    }
+
+    // 3. Keyword Similarity in Title & Description (25 Points)
+    const textAWords = new Set([...extractKeywords(itemA.title), ...extractKeywords(itemA.description)]);
+    const textBWords = new Set([...extractKeywords(itemB.title), ...extractKeywords(itemB.description)]);
+    const keywordMatches = [];
+    textAWords.forEach(w => {
+        if (textBWords.has(w) && !locAWords.has(w)) {
+            keywordMatches.push(w);
+        }
+    });
+
+    if (keywordMatches.length > 0) {
+        const textScore = Math.min(25, Math.round(keywordMatches.length * 8.5));
+        score += textScore;
+        reasons.push(`🔤 Keyword Overlap: "${keywordMatches.slice(0, 3).join(', ')}"`);
+    }
+
+    // 4. Date Logic (15 Points)
+    if (itemA.date_reported && itemB.date_reported) {
+        const lostDateStr = itemA.type === 'LOST' ? itemA.date_reported : itemB.date_reported;
+        const foundDateStr = itemA.type === 'FOUND' ? itemA.date_reported : itemB.date_reported;
+        
+        if (foundDateStr >= lostDateStr) {
+            score += 15;
+            reasons.push(`📅 Timeline Compatible`);
+        }
+    }
+
+    const finalScore = Math.min(100, Math.round(score));
+    return { score: finalScore, reasons };
+}
+
+// GET /api/items/:id/matches (Get smart matching items for a saved record)
+app.get('/api/items/:id/matches', (req, res) => {
+    const { id } = req.params;
+    if (!/^\d+$/.test(id)) {
+        return res.status(400).json({ error: 'Item id must be a positive integer' });
+    }
+
+    db.get('SELECT * FROM items WHERE id = ?', [id], (err, targetItem) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!targetItem) return res.status(404).json({ error: 'Target item not found' });
+
+        const oppositeType = targetItem.type === 'LOST' ? 'FOUND' : 'LOST';
+
+        db.all('SELECT * FROM items WHERE type = ? AND status = "OPEN" AND id != ?', [oppositeType, id], (err, candidates) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            const matches = candidates.map(candidate => {
+                const matchResult = calculateMatchScore(targetItem, candidate);
+                return {
+                    candidate,
+                    score: matchResult.score,
+                    reasons: matchResult.reasons
+                };
+            })
+            .filter(m => m.score >= 20) // Filter out weak matches
+            .sort((a, b) => b.score - a.score);
+
+            res.json({
+                target_item: targetItem,
+                total_matches: matches.length,
+                matches
+            });
+        });
+    });
+});
+
+// POST /api/match (Test Smart Match criteria live without saving)
+app.post('/api/match', (req, res) => {
+    const { title, type, category, location, date_reported, description } = req.body;
+    if (!title || !type || !category) {
+        return res.status(400).json({ error: 'Title, type, and category are required for matching.' });
+    }
+
+    const targetItem = {
+        title: title || '',
+        type: (type || 'LOST').toUpperCase(),
+        category: category || 'Other',
+        location: location || '',
+        date_reported: date_reported || new Date().toISOString().split('T')[0],
+        description: description || ''
+    };
+
+    const oppositeType = targetItem.type === 'LOST' ? 'FOUND' : 'LOST';
+
+    db.all('SELECT * FROM items WHERE type = ? AND status = "OPEN"', [oppositeType], (err, candidates) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const matches = candidates.map(candidate => {
+            const matchResult = calculateMatchScore(targetItem, candidate);
+            return {
+                candidate,
+                score: matchResult.score,
+                reasons: matchResult.reasons
+            };
+        })
+        .filter(m => m.score >= 20)
+        .sort((a, b) => b.score - a.score);
+
+        res.json({
+            target_item: targetItem,
+            total_matches: matches.length,
+            matches
+        });
+    });
+});
+
+function getSmartImageUrl(category, title = '', description = '') {
+    const t = (title + ' ' + description).toLowerCase();
+    
+    if (t.includes('calculator')) return "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=600&q=80";
+    if (t.includes('airdopes') || t.includes('earbud') || t.includes('headphone') || t.includes('airpods') || t.includes('boat')) return "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&q=80";
+    if (t.includes('laptop') || t.includes('macbook') || t.includes('dell') || t.includes('hp') || t.includes('lenovo')) return "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&q=80";
+    if (t.includes('phone') || t.includes('iphone') || t.includes('mobile') || t.includes('samsung') || t.includes('oneplus')) return "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80";
+    if (t.includes('watch') || t.includes('smartwatch') || t.includes('casio')) return "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80";
+    if (t.includes('id') || t.includes('card') || t.includes('wallet') || t.includes('purse')) return "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80";
+    if (t.includes('key') || t.includes('keychain') || t.includes('batman')) return "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&q=80";
+    if (t.includes('book') || t.includes('notes') || t.includes('notebook') || t.includes('cormen') || t.includes('textbook')) return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80";
+    if (t.includes('jacket') || t.includes('bag') || t.includes('backpack') || t.includes('denim') || t.includes('hoodie') || t.includes('shirt') || t.includes('apparel')) return "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80";
+    if (t.includes('bottle') || t.includes('flask') || t.includes('water')) return "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&q=80";
+    if (t.includes('pen') || t.includes('pencil') || t.includes('stationery')) return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=600&q=80";
+    if (t.includes('umbrella')) return "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=600&q=80";
+
+    const catMap = {
+        'Electronics': "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&q=80",
+        'ID & Wallet': "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80",
+        'Keys': "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&q=80",
+        'Books': "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80",
+        'Apparel': "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80"
+    };
+    return catMap[category] || "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=600&q=80";
+}
+
 // POST /api/items (Create new report)
 app.post('/api/items', optionalToken, (req, res) => {
     const { title, type, category, location, date_reported, description, contact_name, contact_info, image_url } = req.body;
@@ -456,7 +633,7 @@ app.post('/api/items', optionalToken, (req, res) => {
         return res.status(400).json({ error: 'Validation failed', details: validationErrors });
     }
 
-    const defaultImg = "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=500&q=80";
+    const defaultImg = getSmartImageUrl(category, title, description);
     const userId = req.user ? req.user.id : 0;
 
     db.run(`

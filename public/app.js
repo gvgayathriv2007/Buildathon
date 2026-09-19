@@ -4,10 +4,10 @@
  * Supports GitHub Pages cross-origin API bridging
  */
 
-// Dynamic API Base URL detection for GitHub Pages hosting
+// Dynamic API Base URL detection for remote hosting (Vercel, GitHub Pages, Netlify)
 const BACKEND_PUBLIC_URL = 'https://forty-donuts-argue.loca.lt';
-const isGitHubPages = window.location.hostname.includes('github.io');
-const API_BASE_URL = isGitHubPages ? BACKEND_PUBLIC_URL : '';
+const isRemoteDeployment = !['localhost', '127.0.0.1', ''].includes(window.location.hostname);
+const API_BASE_URL = isRemoteDeployment ? BACKEND_PUBLIC_URL : '';
 
 // Application State
 const state = {
@@ -35,6 +35,35 @@ const categoryDefaultImages = {
     "Apparel": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80",
     "Other": "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=600&q=80"
 };
+
+function getSmartItemImage(item) {
+    if (!item) return categoryDefaultImages['Other'];
+    
+    const genericBoxImg = "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=500&q=80";
+    
+    if (item.image_url && item.image_url.trim() !== '' && !item.image_url.includes('1584438784894-089d6a62b8fa')) {
+        let url = item.image_url;
+        if (url.startsWith('/uploads/')) url = `${API_BASE_URL}${url}`;
+        return url;
+    }
+    
+    const t = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
+    
+    if (t.includes('calculator')) return "https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48a?w=600&q=80";
+    if (t.includes('airdopes') || t.includes('earbud') || t.includes('headphone') || t.includes('airpods') || t.includes('boat')) return "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&q=80";
+    if (t.includes('laptop') || t.includes('macbook') || t.includes('dell') || t.includes('hp') || t.includes('lenovo')) return "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&q=80";
+    if (t.includes('phone') || t.includes('iphone') || t.includes('mobile') || t.includes('samsung') || t.includes('oneplus')) return "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&q=80";
+    if (t.includes('watch') || t.includes('smartwatch') || t.includes('casio')) return "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80";
+    if (t.includes('id') || t.includes('card') || t.includes('wallet') || t.includes('purse')) return "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80";
+    if (t.includes('key') || t.includes('keychain') || t.includes('batman')) return "https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&q=80";
+    if (t.includes('book') || t.includes('notes') || t.includes('notebook') || t.includes('cormen') || t.includes('textbook')) return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80";
+    if (t.includes('jacket') || t.includes('bag') || t.includes('backpack') || t.includes('denim') || t.includes('hoodie') || t.includes('shirt') || t.includes('apparel')) return "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80";
+    if (t.includes('bottle') || t.includes('flask') || t.includes('water')) return "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&q=80";
+    if (t.includes('pen') || t.includes('pencil') || t.includes('stationery')) return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=600&q=80";
+    if (t.includes('umbrella')) return "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=600&q=80";
+
+    return categoryDefaultImages[item.category] || categoryDefaultImages['Other'] || genericBoxImg;
+}
 
 // DOM References
 const elements = {
@@ -107,6 +136,18 @@ const elements = {
     btnMarkReunited: document.getElementById('btn-mark-reunited'),
     btnOpenEditItem: document.getElementById('btn-open-edit-item'),
     btnDeleteItem: document.getElementById('btn-delete-item'),
+    
+    // Smart Match Engine DOM
+    btnOpenSmartMatch: document.getElementById('btn-open-smart-match'),
+    btnDetailSmartMatch: document.getElementById('btn-detail-smart-match'),
+    smartMatchModal: document.getElementById('smart-match-modal'),
+    btnCloseSmartMatch: document.getElementById('btn-close-smart-match'),
+    smartMatchItemSelect: document.getElementById('smart-match-item-select'),
+    smartMatchTargetBanner: document.getElementById('smart-match-target-banner'),
+    matchTargetType: document.getElementById('match-target-type'),
+    matchTargetTitle: document.getElementById('match-target-title'),
+    matchTargetMeta: document.getElementById('match-target-meta'),
+    smartMatchResultsContainer: document.getElementById('smart-match-results-container'),
     
     toastStack: document.getElementById('toast-stack')
 };
@@ -281,11 +322,33 @@ function setupEventListeners() {
     elements.btnDeleteItem.addEventListener('click', handleDeleteItem);
     elements.btnOpenEditItem.addEventListener('click', openEditModal);
 
+    // Smart Match Modal triggers
+    if (elements.btnOpenSmartMatch) {
+        elements.btnOpenSmartMatch.addEventListener('click', () => openSmartMatchModal());
+    }
+    if (elements.btnDetailSmartMatch) {
+        elements.btnDetailSmartMatch.addEventListener('click', () => {
+            const currentId = state.currentItemId;
+            elements.detailsModal.classList.add('hidden');
+            openSmartMatchModal(currentId);
+        });
+    }
+    if (elements.btnCloseSmartMatch) {
+        elements.btnCloseSmartMatch.addEventListener('click', () => elements.smartMatchModal.classList.add('hidden'));
+    }
+    if (elements.smartMatchItemSelect) {
+        elements.smartMatchItemSelect.addEventListener('change', (e) => {
+            const selectedId = parseInt(e.target.value, 10);
+            if (selectedId) runSmartMatch(selectedId);
+        });
+    }
+
     // Background click dismiss
     window.addEventListener('click', (e) => {
         if (e.target === elements.reportModal) closeReport();
         if (e.target === elements.detailsModal) elements.detailsModal.classList.add('hidden');
         if (e.target === elements.authModal) elements.authModal.classList.add('hidden');
+        if (e.target === elements.smartMatchModal) elements.smartMatchModal.classList.add('hidden');
         if (e.target === elements.editModal) elements.editModal.classList.add('hidden');
     });
 }
@@ -479,11 +542,7 @@ function renderItems(items) {
         const statusClass = item.status === 'REUNITED' ? 'reunited' : item.type.toLowerCase();
         const statusLabel = item.status === 'REUNITED' ? 'REUNITED' : item.type;
         const fallbackImg = categoryDefaultImages[item.category] || categoryDefaultImages['Other'];
-        
-        let displayImg = item.image_url && item.image_url.trim() !== '' ? item.image_url : fallbackImg;
-        if (displayImg.startsWith('/uploads/')) {
-            displayImg = `${API_BASE_URL}${displayImg}`;
-        }
+        const displayImg = getSmartItemImage(item);
         
         return `
             <div class="item-card" onclick="openDetailsModal(${item.id})">
@@ -520,10 +579,7 @@ function openDetailsModal(id) {
     elements.detailTypeBadge.textContent = item.status === 'REUNITED' ? 'REUNITED / CLAIMED' : item.type;
     
     const fallbackImg = categoryDefaultImages[item.category] || categoryDefaultImages['Other'];
-    let displayImg = item.image_url && item.image_url.trim() !== '' ? item.image_url : fallbackImg;
-    if (displayImg.startsWith('/uploads/')) {
-        displayImg = `${API_BASE_URL}${displayImg}`;
-    }
+    const displayImg = getSmartItemImage(item);
 
     elements.detailImg.src = displayImg;
     elements.detailImg.onerror = () => { elements.detailImg.src = fallbackImg; };
@@ -610,6 +666,18 @@ async function handleReportSubmit(e) {
         
         fetchStats();
         fetchItems();
+
+        if (data.id) {
+            fetch(`${API_BASE_URL}/api/items/${data.id}/matches`, { headers: { 'bypass-tunnel-reminder': 'true' } })
+                .then(r => r.json())
+                .then(matchData => {
+                    if (matchData.matches && matchData.matches.length > 0) {
+                        showToast(`⚡ Smart Match Alert: ${matchData.matches.length} potential matches found!`, 'success');
+                        setTimeout(() => openSmartMatchModal(data.id), 800);
+                    }
+                })
+                .catch(() => {});
+        }
     } catch (err) {
         showToast(err.message || 'Error publishing report.', 'error');
     }
@@ -777,4 +845,160 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+// ==========================================================================
+// GENESIS 2.0 SMART MATCH ENGINE FRONTEND LOGIC
+// ==========================================================================
+
+async function openSmartMatchModal(targetItemId = null) {
+    elements.smartMatchModal.classList.remove('hidden');
+    elements.smartMatchResultsContainer.innerHTML = `
+        <div class="empty-box">
+            <div class="empty-icon-circle"><i class="fa-solid fa-rotate fa-spin"></i></div>
+            <h3>Loading database records for matching...</h3>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/items?limit=100`, {
+            headers: { 'bypass-tunnel-reminder': 'true' }
+        });
+        const data = await res.json();
+        const allItems = data.items || data || [];
+
+        const openItems = allItems.filter(i => i.status !== 'REUNITED');
+
+        if (openItems.length === 0) {
+            elements.smartMatchItemSelect.innerHTML = `<option value="">No open items available in database</option>`;
+            elements.smartMatchResultsContainer.innerHTML = `
+                <div class="empty-box">
+                    <div class="empty-icon-circle"><i class="fa-solid fa-folder-open"></i></div>
+                    <h3>No items available for Smart Matching</h3>
+                    <p style="color: var(--text-muted);">Report a lost or found item first!</p>
+                </div>
+            `;
+            return;
+        }
+
+        elements.smartMatchItemSelect.innerHTML = openItems.map(item => `
+            <option value="${item.id}" ${targetItemId === item.id ? 'selected' : ''}>
+                [${item.type}] ${escapeHtml(item.title)} - ${escapeHtml(item.location)}
+            </option>
+        `).join('');
+
+        const selectedId = targetItemId || openItems[0].id;
+        elements.smartMatchItemSelect.value = selectedId;
+        runSmartMatch(selectedId);
+    } catch (err) {
+        console.error('Error opening Smart Match modal:', err);
+        elements.smartMatchResultsContainer.innerHTML = `
+            <div class="empty-box">
+                <div class="empty-icon-circle"><i class="fa-solid fa-triangle-exclamation" style="color: var(--lost-color);"></i></div>
+                <h3>Failed to load item matches</h3>
+            </div>
+        `;
+    }
+}
+
+async function runSmartMatch(itemId) {
+    elements.smartMatchResultsContainer.innerHTML = `
+        <div class="empty-box">
+            <div class="empty-icon-circle"><i class="fa-solid fa-bolt fa-spin" style="color: var(--gold-light);"></i></div>
+            <h3>Running Smart Match engine...</h3>
+            <p style="color: var(--text-muted);">Comparing category, location, title keywords & dates...</p>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/items/${itemId}/matches`, {
+            headers: { 'bypass-tunnel-reminder': 'true' }
+        });
+        if (!res.ok) throw new Error('Match query failed');
+
+        const data = await res.json();
+        const target = data.target_item;
+        const matches = data.matches;
+
+        elements.smartMatchTargetBanner.classList.remove('hidden');
+        const statusClass = target.type.toLowerCase();
+        elements.matchTargetType.className = `badge-status ${statusClass}`;
+        elements.matchTargetType.textContent = target.type;
+        elements.matchTargetTitle.textContent = target.title;
+        elements.matchTargetMeta.textContent = `${target.category} • ${target.location} • Reported on ${target.date_reported}`;
+
+        if (!matches || matches.length === 0) {
+            elements.smartMatchResultsContainer.innerHTML = `
+                <div class="empty-box">
+                    <div class="empty-icon-circle"><i class="fa-solid fa-shield-xmark" style="color: var(--text-muted);"></i></div>
+                    <h3>No Strong Matches Found Yet</h3>
+                    <p style="color: var(--text-muted);">No open ${target.type === 'LOST' ? 'FOUND' : 'LOST'} items currently match this description with high confidence.</p>
+                </div>
+            `;
+            return;
+        }
+
+        elements.smartMatchResultsContainer.innerHTML = matches.map(m => {
+            const cand = m.candidate;
+            const score = m.score;
+            let scoreLevel = 'low';
+            if (score >= 70) scoreLevel = 'high';
+            else if (score >= 45) scoreLevel = 'medium';
+
+            const fallbackImg = categoryDefaultImages[cand.category] || categoryDefaultImages['Other'];
+            const displayImg = getSmartItemImage(cand);
+
+            const reasonBadges = m.reasons.map(r => `<span class="reason-pill">${escapeHtml(r)}</span>`).join('');
+
+            return `
+                <div class="match-card">
+                    <div class="match-card-header">
+                        <div style="display: flex; gap: 0.8rem; align-items: center;">
+                            <img src="${displayImg}" style="width: 54px; height: 54px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-light);" onerror="this.src='${fallbackImg}'">
+                            <div>
+                                <span class="badge-status ${cand.type.toLowerCase()}" style="font-size: 0.65rem; padding: 0.15rem 0.4rem;">${cand.type}</span>
+                                <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading); margin-top: 0.2rem;">${escapeHtml(cand.title)}</h4>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(cand.location)} • ${escapeHtml(cand.date_reported)}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="match-score-badge">
+                            <span class="match-score-num ${scoreLevel}">${score}% Match</span>
+                            <div class="match-score-bar-bg">
+                                <div class="match-score-bar-fill ${scoreLevel}" style="width: ${score}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">${escapeHtml(cand.description)}</p>
+                    
+                    <div class="match-reasons-list">
+                        ${reasonBadges}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.3rem;">
+                        <span style="font-size: 0.8rem; color: var(--gold-light); font-weight: 600;">
+                            <i class="fa-solid fa-user-check"></i> ${escapeHtml(cand.contact_name)} (${escapeHtml(cand.contact_info)})
+                        </span>
+                        <button class="btn btn-glass" style="padding: 0.35rem 0.85rem; font-size: 0.8rem;" onclick="openMatchItemDetails(${cand.id})">
+                            View & Contact <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Error running Smart Match:', err);
+        elements.smartMatchResultsContainer.innerHTML = `
+            <div class="empty-box">
+                <div class="empty-icon-circle"><i class="fa-solid fa-triangle-exclamation" style="color: var(--lost-color);"></i></div>
+                <h3>Failed to calculate Smart Match scores</h3>
+            </div>
+        `;
+    }
+}
+
+function openMatchItemDetails(itemId) {
+    elements.smartMatchModal.classList.add('hidden');
+    openDetailsModal(itemId);
 }

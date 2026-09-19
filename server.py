@@ -27,6 +27,52 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+STOPWORDS = {'a', 'an', 'the', 'in', 'on', 'at', 'near', 'with', 'my', 'is', 'and', 'or', 'for', 'to', 'of', 'lost', 'found', 'please', 'help', 'some', 'item', 'block', 'room'}
+
+def extract_keywords(text):
+    if not text:
+        return set()
+    import re
+    words = re.sub(r'[^a-zA-Z0-9\s]', ' ', str(text).lower()).split()
+    return {w for w in words if len(w) > 2 and w not in STOPWORDS}
+
+def calculate_match_score(item_a, item_b):
+    score = 0
+    reasons = []
+
+    cat_a = item_a.get('category', '')
+    cat_b = item_b.get('category', '')
+    if cat_a and cat_b and str(cat_a).lower() == str(cat_b).lower():
+        score += 35
+        reasons.append(f"🎯 Category Match: {cat_a}")
+
+    loc_a = extract_keywords(item_a.get('location', ''))
+    loc_b = extract_keywords(item_b.get('location', ''))
+    loc_matches = loc_a.intersection(loc_b)
+    if loc_matches:
+        score += min(25, round(len(loc_matches) * 12.5))
+        reasons.append(f"📍 Location Overlap ({item_b.get('location', '')})")
+
+    text_a = extract_keywords(item_a.get('title', '')) | extract_keywords(item_a.get('description', ''))
+    text_b = extract_keywords(item_b.get('title', '')) | extract_keywords(item_b.get('description', ''))
+    keyword_matches = [w for w in text_a.intersection(text_b) if w not in loc_a]
+    if keyword_matches:
+        score += min(25, round(len(keyword_matches) * 8.5))
+        kw_str = ", ".join(keyword_matches[:3])
+        reasons.append(f'🔤 Keyword Overlap: "{kw_str}"')
+
+    date_a = item_a.get('date_reported', '')
+    date_b = item_b.get('date_reported', '')
+    if date_a and date_b:
+        type_a = item_a.get('type', 'LOST')
+        lost_date = date_a if type_a == 'LOST' else date_b
+        found_date = date_a if type_a == 'FOUND' else date_b
+        if found_date >= lost_date:
+            score += 15
+            reasons.append("📅 Timeline Compatible")
+
+    return {"score": min(100, round(score)), "reasons": reasons}
+
 def init_db():
     """Initialize SQLite Database Schema and Seed Data"""
     with sqlite3.connect(DB_FILE) as conn:
@@ -248,10 +294,92 @@ class CleanHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 500)
             return
             
+        # API: Smart Match for Item ID
+        elif path.startswith("/api/items/") and path.endswith("/matches"):
+            try:
+                parts = path.split('/')
+                item_id = parts[3]
+                conn = get_db()
+                cursor = conn.cursor()
+                
+                cursor.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+                row = cursor.fetchone()
+                if not row:
+                    self.send_json({"error": "Target item not found"}, 404)
+                    return
+                    
+                target_item = dict(row)
+                opposite_type = "FOUND" if target_item['type'] == "LOST" else "LOST"
+                
+                cursor.execute("SELECT * FROM items WHERE type = ? AND status = 'OPEN' AND id != ?", (opposite_type, item_id))
+                candidates = [dict(r) for r in cursor.fetchall()]
+                conn.close()
+                
+                matches = []
+                for cand in candidates:
+                    res = calculate_match_score(target_item, cand)
+                    if res['score'] >= 20:
+                        matches.append({
+                            "candidate": cand,
+                            "score": res['score'],
+                            "reasons": res['reasons']
+                        })
+                matches.sort(key=lambda x: x['score'], reverse=True)
+                
+                self.send_json({
+                    "target_item": target_item,
+                    "total_matches": len(matches),
+                    "matches": matches
+                })
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
+
         # Serve static HTML/CSS/JS assets
         self.serve_static(path)
 
     def do_POST(self):
+        if self.path == "/api/match":
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_length)
+                data = json.loads(body.decode('utf-8'))
+                
+                target_item = {
+                    "title": data.get("title", ""),
+                    "type": data.get("type", "LOST").upper(),
+                    "category": data.get("category", "Other"),
+                    "location": data.get("location", ""),
+                    "date_reported": data.get("date_reported", ""),
+                    "description": data.get("description", "")
+                }
+                
+                opposite_type = "FOUND" if target_item['type'] == "LOST" else "LOST"
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM items WHERE type = ? AND status = 'OPEN'", (opposite_type,))
+                candidates = [dict(r) for r in cursor.fetchall()]
+                conn.close()
+                
+                matches = []
+                for cand in candidates:
+                    res = calculate_match_score(target_item, cand)
+                    if res['score'] >= 20:
+                        matches.append({
+                            "candidate": cand,
+                            "score": res['score'],
+                            "reasons": res['reasons']
+                        })
+                matches.sort(key=lambda x: x['score'], reverse=True)
+                
+                self.send_json({
+                    "target_item": target_item,
+                    "total_matches": len(matches),
+                    "matches": matches
+                })
+            except Exception as e:
+                self.send_json({"error": str(e)}, 500)
+            return
         if self.path == "/api/items":
             try:
                 content_length = int(self.headers.get('Content-Length', 0))
