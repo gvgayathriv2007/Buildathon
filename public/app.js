@@ -147,6 +147,22 @@ const elements = {
     matchTargetMeta: document.getElementById('match-target-meta'),
     smartMatchResultsContainer: document.getElementById('smart-match-results-container'),
     
+    // Data Migration Engine DOM
+    btnOpenMigrationModal: document.getElementById('btn-open-migration-modal'),
+    migrationModal: document.getElementById('migration-modal'),
+    btnCloseMigration: document.getElementById('btn-close-migration'),
+    btnLoadSampleMigration: document.getElementById('btn-load-sample-migration'),
+    btnRunMigration: document.getElementById('btn-run-migration'),
+    migrationRawInput: document.getElementById('migration-raw-input'),
+    migrationDashboard: document.getElementById('migration-dashboard'),
+    migStatRaw: document.getElementById('mig-stat-raw'),
+    migStatImported: document.getElementById('mig-stat-imported'),
+    migStatDuplicate: document.getElementById('mig-stat-duplicate'),
+    migStatRejected: document.getElementById('mig-stat-rejected'),
+    migStatSuccessRate: document.getElementById('mig-stat-success-rate'),
+    migEvidenceTabs: document.getElementById('mig-evidence-tabs'),
+    migEvidenceContainer: document.getElementById('mig-evidence-container'),
+    
     toastStack: document.getElementById('toast-stack')
 };
 
@@ -341,12 +357,38 @@ function setupEventListeners() {
         });
     }
 
+    // Data Migration Modal triggers
+    if (elements.btnOpenMigrationModal) {
+        elements.btnOpenMigrationModal.addEventListener('click', openMigrationModal);
+    }
+    if (elements.btnCloseMigration) {
+        elements.btnCloseMigration.addEventListener('click', () => elements.migrationModal.classList.add('hidden'));
+    }
+    if (elements.btnLoadSampleMigration) {
+        elements.btnLoadSampleMigration.addEventListener('click', loadSampleMigrationDataset);
+    }
+    if (elements.btnRunMigration) {
+        elements.btnRunMigration.addEventListener('click', runDataMigrationPipeline);
+    }
+    if (elements.migEvidenceTabs) {
+        elements.migEvidenceTabs.querySelectorAll('.auth-tab-btn').forEach(tabBtn => {
+            tabBtn.addEventListener('click', (e) => {
+                elements.migEvidenceTabs.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
+                const target = e.currentTarget;
+                target.classList.add('active');
+                const tabKey = target.getAttribute('data-mig-tab');
+                renderMigrationEvidenceTab(tabKey);
+            });
+        });
+    }
+
     // Background click dismiss
     window.addEventListener('click', (e) => {
         if (e.target === elements.reportModal) closeReport();
         if (e.target === elements.detailsModal) elements.detailsModal.classList.add('hidden');
         if (e.target === elements.authModal) elements.authModal.classList.add('hidden');
         if (e.target === elements.smartMatchModal) elements.smartMatchModal.classList.add('hidden');
+        if (e.target === elements.migrationModal) elements.migrationModal.classList.add('hidden');
         if (e.target === elements.editModal) elements.editModal.classList.add('hidden');
     });
 }
@@ -999,4 +1041,224 @@ async function runSmartMatch(itemId) {
 function openMatchItemDetails(itemId) {
     elements.smartMatchModal.classList.add('hidden');
     openDetailsModal(itemId);
+}
+
+// ==========================================================================
+// GENESIS 2.0 PHASE 2 DATA MIGRATION ENGINE & EVIDENCE LOGIC
+// ==========================================================================
+
+const sampleMigrationPayload = [
+    {
+        "title": "Apple MacBook Pro M2 (Space Grey)",
+        "type": "LOST",
+        "category": "Electronics",
+        "location": "Central Library Reading Room 1",
+        "date_reported": "2026-09-18",
+        "description": "Left in laptop sleeve on desk 4. Stickers on lid: Octocat & Python logo.",
+        "contact_name": "Siddharth Verma",
+        "contact_info": "sid.verma@campus.edu | Ph: 9812345678"
+    },
+    {
+        "title": "Blue HP Laptop Backpack",
+        "type": "FOUND",
+        "category": "Apparel",
+        "location": "CS Department Seminar Hall",
+        "date_reported": "2026-09-18",
+        "description": "Found after CSE guest lecture. Contains 2 notebooks and blue pen.",
+        "contact_name": "Volunteer Desk",
+        "contact_info": "volunteers@campus.edu"
+    },
+    {
+        "title": "Wireless Boat Airdopes (Black)",
+        "type": "LOST",
+        "category": "Electronics",
+        "location": "Central Library Reading Room 2",
+        "date_reported": "2026-09-15",
+        "description": "Duplicate item check - already reported in database.",
+        "contact_name": "Rahul Sharma",
+        "contact_info": "rahul.cs23@campus.edu"
+    },
+    {
+        "title": "College ID Card & Leather Wallet",
+        "type": "LOST",
+        "category": "ID & Wallet",
+        "location": "Main Canteen Counter",
+        "date_reported": "2026-09-16",
+        "description": "Duplicate item check - already reported in database.",
+        "contact_name": "Ananya Verma",
+        "contact_info": "ananya.v@campus.edu"
+    },
+    {
+        "title": "Broken Stainless Steel Flask",
+        "type": "FOUND",
+        "category": "Other",
+        "location": "Sports Complex",
+        "date_reported": "2026-09-18",
+        "description": "Invalid Record - Missing contact info details.",
+        "contact_name": "Anonymous",
+        "contact_info": ""
+    },
+    {
+        "title": "Corrupted Record Item",
+        "type": "INVALID_TYPE",
+        "category": "NonExistentCategory",
+        "location": "Canteen",
+        "date_reported": "2026-99-99",
+        "description": "Corrupted date and category.",
+        "contact_name": "Test User",
+        "contact_info": "invalid_contact"
+    }
+];
+
+let migrationStateData = null;
+
+function openMigrationModal() {
+    elements.migrationModal.classList.remove('hidden');
+    if (!elements.migrationRawInput.value.trim()) {
+        loadSampleMigrationDataset();
+    }
+}
+
+function loadSampleMigrationDataset() {
+    elements.migrationRawInput.value = JSON.stringify(sampleMigrationPayload, null, 2);
+    showToast('Sample dataset loaded with mixed valid, duplicate, and invalid entries!', 'success');
+}
+
+async function runDataMigrationPipeline() {
+    const rawTxt = elements.migrationRawInput.value.trim();
+    if (!rawTxt) {
+        return showToast('Please provide a raw JSON dataset to migrate.', 'error');
+    }
+
+    let parsedRecords = [];
+    try {
+        parsedRecords = JSON.parse(rawTxt);
+    } catch (err) {
+        return showToast('Invalid JSON format. Please format as a valid JSON array.', 'error');
+    }
+
+    elements.btnRunMigration.disabled = true;
+    elements.btnRunMigration.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing...`;
+
+    try {
+        const headers = { 
+            'Content-Type': 'application/json',
+            'bypass-tunnel-reminder': 'true'
+        };
+        if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+
+        const res = await fetch(`${API_BASE_URL}/api/migration/import`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(parsedRecords)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Migration failed');
+
+        migrationStateData = data;
+        const summary = data.summary;
+
+        // Update Stat Badges
+        elements.migStatRaw.textContent = summary.total_raw;
+        elements.migStatImported.textContent = summary.imported_count;
+        elements.migStatDuplicate.textContent = summary.duplicate_count;
+        elements.migStatRejected.textContent = summary.rejected_count;
+        elements.migStatSuccessRate.textContent = summary.success_rate;
+
+        elements.migrationDashboard.classList.remove('hidden');
+
+        // Render default evidence tab (imported)
+        renderMigrationEvidenceTab('imported');
+
+        showToast(`Migration Complete! ${summary.imported_count} imported, ${summary.duplicate_count} duplicates, ${summary.rejected_count} rejected.`, 'success');
+
+        // Refresh stats & items list
+        fetchStats();
+        fetchItems();
+    } catch (err) {
+        showToast(err.message || 'Error running migration pipeline.', 'error');
+    } finally {
+        elements.btnRunMigration.disabled = false;
+        elements.btnRunMigration.innerHTML = `<i class="fa-solid fa-play"></i> Run Migration Pipeline`;
+    }
+}
+
+function renderMigrationEvidenceTab(tabKey) {
+    if (!migrationStateData) return;
+
+    const container = elements.migEvidenceContainer;
+
+    if (tabKey === 'imported') {
+        const records = migrationStateData.imported_records;
+        if (!records || records.length === 0) {
+            container.innerHTML = `<p class="text-muted">No records were imported in this batch.</p>`;
+            return;
+        }
+        container.innerHTML = `
+            <table class="mig-table">
+                <thead>
+                    <tr><th>ID</th><th>Type</th><th>Title</th><th>Category</th><th>Location</th><th>Contact</th></tr>
+                </thead>
+                <tbody>
+                    ${records.map(r => `
+                        <tr>
+                            <td>#${r.id}</td>
+                            <td><span class="badge-status ${r.type.toLowerCase()}" style="font-size:0.65rem; padding:0.15rem 0.4rem;">${r.type}</span></td>
+                            <td><strong>${escapeHtml(r.title)}</strong></td>
+                            <td>${escapeHtml(r.category)}</td>
+                            <td>${escapeHtml(r.location)}</td>
+                            <td>${escapeHtml(r.contact_name)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else if (tabKey === 'duplicates') {
+        const records = migrationStateData.duplicate_records;
+        if (!records || records.length === 0) {
+            container.innerHTML = `<p class="text-muted">No duplicate records detected.</p>`;
+            return;
+        }
+        container.innerHTML = `
+            <table class="mig-table">
+                <thead>
+                    <tr><th>Type</th><th>Title</th><th>Location</th><th>Status Log</th></tr>
+                </thead>
+                <tbody>
+                    ${records.map(d => `
+                        <tr>
+                            <td><span class="badge-status ${d.record.type ? d.record.type.toLowerCase() : 'lost'}" style="font-size:0.65rem; padding:0.15rem 0.4rem;">${escapeHtml(d.record.type || 'N/A')}</span></td>
+                            <td><strong>${escapeHtml(d.record.title)}</strong></td>
+                            <td>${escapeHtml(d.record.location)}</td>
+                            <td><span class="reason-pill" style="color:#f59e0b; border-color:rgba(245,158,11,0.3);">${escapeHtml(d.reason)}</span></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else if (tabKey === 'rejected') {
+        const records = migrationStateData.rejected_records;
+        if (!records || records.length === 0) {
+            container.innerHTML = `<p class="text-muted">No invalid records rejected.</p>`;
+            return;
+        }
+        container.innerHTML = `
+            <table class="mig-table">
+                <thead>
+                    <tr><th>Raw Title / Payload</th><th>Rejection Reasons</th></tr>
+                </thead>
+                <tbody>
+                    ${records.map(rj => `
+                        <tr>
+                            <td><strong>${escapeHtml(rj.record.title || 'Untitled Record')}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(JSON.stringify(rj.record))}</span></td>
+                            <td>${rj.reasons.map(reason => `<span class="rej-reason-tag">${escapeHtml(reason)}</span>`).join('')}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else if (tabKey === 'raw') {
+        container.innerHTML = `<pre style="font-family:monospace; font-size:0.75rem; color:var(--text-muted); margin:0;">${escapeHtml(JSON.stringify(migrationStateData.raw_records, null, 2))}</pre>`;
+    }
 }

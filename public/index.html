@@ -32,6 +32,9 @@
             </a>
 
             <div class="nav-actions">
+                <button class="btn btn-glass" id="btn-open-migration-modal" style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+                    <i class="fa-solid fa-boxes-packing" style="color: #38bdf8;"></i> Data Migration
+                </button>
                 <button class="btn btn-glass" id="btn-open-smart-match" style="border-color: rgba(217, 164, 65, 0.4); color: var(--gold-light);">
                     <i class="fa-solid fa-bolt" style="color: var(--gold-light);"></i> Smart Match Engine
                 </button>
@@ -522,6 +525,83 @@
                     <div class="empty-icon-circle"><i class="fa-solid fa-rotate fa-spin"></i></div>
                     <h3>Select an item to run Smart Match algorithm...</h3>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Phase 2 Data Migration Engine -->
+    <div class="modal-overlay-bg hidden" id="migration-modal">
+        <div class="modal-card migration-modal-card">
+            <div class="modal-top">
+                <h3 class="modal-top-title" style="color: #38bdf8;">
+                    <i class="fa-solid fa-boxes-packing"></i> Data Migration Pipeline <span class="badge-genesis">Phase 2</span>
+                </h3>
+                <button class="btn-close-x" id="btn-close-migration"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Top Actions & Instructions -->
+            <div class="migration-control-bar">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.8rem;">
+                    Import, clean, and validate bulk external records. The pipeline detects duplicates, filters invalid records, and computes Before-and-After evidence metrics.
+                </p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-glass" id="btn-load-sample-migration" style="font-size: 0.8rem; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+                        <i class="fa-solid fa-file-code"></i> Load Mixed Sample Dataset
+                    </button>
+                    <button class="btn btn-gradient" id="btn-run-migration" style="font-size: 0.85rem; background: linear-gradient(135deg, #0284c7, #0369a1);">
+                        <i class="fa-solid fa-play"></i> Run Migration Pipeline
+                    </button>
+                </div>
+            </div>
+
+            <!-- Raw Data Input Textarea -->
+            <div class="input-group" style="margin-top: 1rem; margin-bottom: 1.2rem;">
+                <label for="migration-raw-input" style="font-size: 0.85rem; color: var(--text-heading);">
+                    <i class="fa-solid fa-code"></i> Raw External Records (JSON Format):
+                </label>
+                <textarea id="migration-raw-input" class="input-control" rows="5" style="font-family: monospace; font-size: 0.78rem;" placeholder="Paste raw JSON array of records here..."></textarea>
+            </div>
+
+            <!-- Migration Results Dashboard (Before vs After Evidence) -->
+            <div class="migration-dashboard hidden" id="migration-dashboard">
+                <h4 style="font-size: 1rem; color: var(--text-heading); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fa-solid fa-chart-line" style="color: #38bdf8;"></i> Migration Evidence & Metric Dashboard
+                </h4>
+
+                <!-- Metric Cards Row -->
+                <div class="mig-metrics-grid">
+                    <div class="mig-metric-card" style="border-color: rgba(255,255,255,0.15);">
+                        <span class="mig-metric-num" id="mig-stat-raw">0</span>
+                        <span class="mig-metric-label">Raw Received</span>
+                    </div>
+                    <div class="mig-metric-card" style="border-color: rgba(16, 185, 129, 0.4);">
+                        <span class="mig-metric-num" id="mig-stat-imported" style="color: #10b981;">0</span>
+                        <span class="mig-metric-label">✅ Imported</span>
+                    </div>
+                    <div class="mig-metric-card" style="border-color: rgba(245, 158, 11, 0.4);">
+                        <span class="mig-metric-num" id="mig-stat-duplicate" style="color: #f59e0b;">0</span>
+                        <span class="mig-metric-label">⚠️ Duplicates</span>
+                    </div>
+                    <div class="mig-metric-card" style="border-color: rgba(244, 63, 94, 0.4);">
+                        <span class="mig-metric-num" id="mig-stat-rejected" style="color: #f43f5e;">0</span>
+                        <span class="mig-metric-label">❌ Rejected</span>
+                    </div>
+                    <div class="mig-metric-card highlight" style="border-color: rgba(56, 189, 248, 0.5);">
+                        <span class="mig-metric-num" id="mig-stat-success-rate" style="color: #38bdf8;">100%</span>
+                        <span class="mig-metric-label">Success Rate</span>
+                    </div>
+                </div>
+
+                <!-- Evidence Tab Navigation -->
+                <div class="auth-tabs" style="margin-top: 1.2rem; margin-bottom: 0.8rem;" id="mig-evidence-tabs">
+                    <button class="auth-tab-btn active" data-mig-tab="imported">✅ Imported (After)</button>
+                    <button class="auth-tab-btn" data-mig-tab="duplicates">⚠️ Duplicates Log</button>
+                    <button class="auth-tab-btn" data-mig-tab="rejected">❌ Rejected Log</button>
+                    <button class="auth-tab-btn" data-mig-tab="raw">📄 Raw Input (Before)</button>
+                </div>
+
+                <!-- Evidence Content Box -->
+                <div class="mig-evidence-container" id="mig-evidence-container"></div>
             </div>
         </div>
     </div>

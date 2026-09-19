@@ -1459,3 +1459,93 @@ body::after {
     border-radius: var(--radius-sm);
 }
 
+/* ==========================================================================
+   DATA MIGRATION ENGINE & EVIDENCE STYLES (GENESIS 2.0 PHASE 2)
+   ========================================================================== */
+.migration-modal-card {
+    max-width: 780px;
+}
+
+.migration-control-bar {
+    background: rgba(13, 20, 29, 0.85);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+}
+
+.mig-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.mig-metric-card {
+    background: rgba(13, 20, 29, 0.75);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 0.85rem 0.6rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.mig-metric-card.highlight {
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.mig-metric-num {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-heading);
+}
+
+.mig-metric-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.mig-evidence-container {
+    background: rgba(7, 11, 17, 0.85);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    max-height: 280px;
+    overflow-y: auto;
+    font-size: 0.82rem;
+}
+
+.mig-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.mig-table th, .mig-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    text-align: left;
+}
+
+.mig-table th {
+    color: var(--text-muted);
+    font-weight: 700;
+    background: rgba(255,255,255,0.03);
+}
+
+.rej-reason-tag {
+    background: rgba(244, 63, 94, 0.15);
+    color: #fb7185;
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    display: inline-block;
+    margin: 0.1rem;
+}
+
