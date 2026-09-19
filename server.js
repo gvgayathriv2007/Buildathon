@@ -16,11 +16,11 @@ const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const JWT_SECRET = process.env.JWT_SECRET || 'campus_findit_genesis_2026_super_secret_key_98765';
-const DB_FILE = path.join(__dirname, 'campus_lost_found.db');
+const isVercel = process.env.VERCEL === '1';
+const DB_FILE = isVercel ? '/tmp/campus_lost_found.db' : path.join(__dirname, 'campus_lost_found.db');
 
 // Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -731,11 +731,15 @@ app.delete('/api/items/:id', authenticateToken, (req, res) => {
 });
 
 // Start Express Server
-app.listen(PORT, () => {
-    console.log(`=======================================================`);
-    console.log(`🚀 CAMPUSFINDIT SERVER RUNNING IN 2ND YEAR TRACK MODE!`);
-    console.log(`🌐 Local Access: http://localhost:${PORT}`);
-    console.log(`🔐 Authentication: JWT + bcrypt Password Hashing Enabled`);
-    console.log(`📁 File Uploads: Saved locally to /uploads/`);
-    console.log(`=======================================================`);
-});
+if (process.env.VERCEL !== '1') {
+    app.listen(PORT, () => {
+        console.log(`=======================================================`);
+        console.log(`🚀 CAMPUSFINDIT SERVER RUNNING IN 2ND YEAR TRACK MODE!`);
+        console.log(`🌐 Local Access: http://localhost:${PORT}`);
+        console.log(`🔐 Authentication: JWT + bcrypt Password Hashing Enabled`);
+        console.log(`📁 File Uploads: Saved locally to /uploads/`);
+        console.log(`=======================================================`);
+    });
+}
+
+module.exports = app;

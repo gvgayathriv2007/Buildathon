@@ -4,10 +4,8 @@
  * Supports GitHub Pages cross-origin API bridging
  */
 
-// Dynamic API Base URL detection for remote hosting (Vercel, GitHub Pages, Netlify)
-const BACKEND_PUBLIC_URL = 'https://forty-donuts-argue.loca.lt';
-const isRemoteDeployment = !['localhost', '127.0.0.1', ''].includes(window.location.hostname);
-const API_BASE_URL = isRemoteDeployment ? BACKEND_PUBLIC_URL : '';
+// API Base URL - Relative path works natively on Vercel standalone deployment & local server
+const API_BASE_URL = '';
 
 // Application State
 const state = {

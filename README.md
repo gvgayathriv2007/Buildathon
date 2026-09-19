@@ -1,6 +1,6 @@
 # 🔍 CampusFindIt - Lost & Found Web Portal
 
-> 🌐 **Live Public Demo URL**: https://sad-rivers-check.loca.lt
+> 🌐 **Live Public Demo URL**: https://campus-lost-found-snowy.vercel.app
 
 > **A full-stack Campus Lost and Found web application tailored for 2nd Year CSE Genesis 2.0 Buildathon demonstrating Node.js, Express REST API, SQLite3 DBMS, bcrypt password hashing, JWT authentication, and file uploads.**
 
